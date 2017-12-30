@@ -1,0 +1,35 @@
+# Note Ruby-flavored :s at start of YAML properties. Not required
+:targets:
+  - name: "My Snowflake database"
+    type: snowflake
+    account: snowplow
+    region:
+    database: SQLRUNNER
+    warehouse: SQLRUNNER_WH
+    username: xxx
+    password: xxx
+    host:
+    port:
+    ssl: true # Snowflake connection is always secured by TLS
+variables:
+  test_schema: sql_runner_tests
+  timeFormat: "2006_01_02"
+steps:
+  - name: Create schema and table
+    queries:
+      - name: Create schema and table
+        file: snowflake-sql/good/1.sql
+        template: true
+  - name: Parallel load
+    queries:
+      - name: Parallel load 1
+        file: snowflake-sql/good/2a.sql
+        template: true
+      - name: Parallel load 2
+        file: snowflake-sql/good/2b.sql
+        template: true
+  - name: Create view
+    queries:
+      - name: Create view
+        file: snowflake-sql/good/3.sql
+        template: true
