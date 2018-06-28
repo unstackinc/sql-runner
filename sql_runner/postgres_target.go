@@ -14,9 +14,11 @@ package main
 
 import (
 	"crypto/tls"
-	"gopkg.in/pg.v5"
+	"github.com/go-pg/pg"
 	"net"
 	"time"
+	"log"
+	"github.com/go-pg/pg/orm"
 )
 
 // For Redshift queries
@@ -63,16 +65,30 @@ func (pt PostgresTarget) GetTarget() Target {
 }
 
 // Run a query against the target
-func (pt PostgresTarget) RunQuery(query ReadyQuery, dryRun bool) QueryStatus {
-
+func (pt PostgresTarget) RunQuery(query ReadyQuery, dryRun bool, dropOutput bool) QueryStatus {
+	var err error = nil
+	var res orm.Result
 	if dryRun {
 		return QueryStatus{query, query.Path, 0, nil}
 	}
 
-	res, err := pt.Client.Exec(query.Script)
 	affected := 0
-	if err == nil {
-		affected = res.RowsAffected()
+	if dropOutput {
+		var results Results
+		res, err = pt.Client.Query(&results, query.Script)
+		if err == nil {
+			affected = res.RowsAffected()
+		}
+		if len(results) > 0 {
+			log.Printf("QUERY OUTPUT: %s\n", results)
+		} else {
+			log.Println("QUERY OUTPUT: No output returned.")
+		}
+	} else {
+		res, err = pt.Client.Exec(query.Script)
+		if err == nil {
+			affected = res.RowsAffected()
+		}
 	}
 
 	return QueryStatus{query, query.Path, affected, err}

@@ -42,10 +42,9 @@ function die() {
 # 1. exit_code
 # 2. command
 function assert_ExitCodeForCommand() {
-   [ "$#" -eq 2 ] || die "2 argument required, $# provided"
+   [ "$#" -eq 2 ] || die "2 arguments required, $# provided"
    local __exit_code="$1"
    local __command="$2"
-
    let "assert_counter+=1"
 
    printf "RUNNING: Assertion ${assert_counter}:\n - ${__command}\n\n"
@@ -63,6 +62,74 @@ function assert_ExitCodeForCommand() {
    fi
 }
 
+# Is passed a line of output and a command and
+# will then assert that the line is printed in the command output.
+#
+# Parameters:
+# 1. array of things to search in one line (input as string separated by spaces)
+# 2. command
+function assert_OutputForCommand() {
+   [ "$#" -eq 2 ] || die "2 arguments required, $# provided"
+   local __line="$1"
+   local __command="$2"
+
+   read -ra terms <<<"${__line}"
+   let "assert_counter+=1"
+
+   printf "RUNNING: Assertion ${assert_counter}:\n - ${__command}\n\n"
+
+   set +e
+   output=$(eval "${__command} 2>&1")
+   retval=`echo $?`
+   set -e
+
+   declare -i numterms=${#terms[@]}
+   declare -i found=0
+   declare -i success=0
+
+   while read -r line; do
+      set +e
+      echo $line | grep -q "QUERY"
+      if [ "$?"  -eq 0 ]; then
+         echo $line | grep -q '\[]'
+         if [ "$?"  -eq 1 ]; then
+            echo $line | grep -q "No output returned"
+            if [ "$?"  -eq 1 ]; then
+               trimmedline=$(echo $line | grep -o 'QUERY OUTPUT:.*')
+               values=`echo $trimmedline | awk -F '[][]' '{print $2}'`
+            else
+               continue
+            fi
+         else
+            continue
+         fi
+      else
+         continue
+      fi
+      set -e
+      found=0
+      read -ra queryterms <<<"$values"
+
+      for term in "${terms[@]}"
+      do
+         if echo "${queryterms[@]}" | grep -q -w "$term"; then 
+            (( found+=1 ))
+         fi
+      done
+
+      if [ "$found" -eq "$numterms" ]; then
+         (( success=1 ))
+         break
+      fi
+   done <<< "$output"
+
+   if [ "$success" -eq 1 ] ; then
+      printf "\nSUCCESS: Test finished with line present: ${__line}\n\n"
+   else
+      printf "\nFAIL: Expected line ${__line}\n\n"
+      exit 1
+   fi
+}
 
 
 # -----------------------------------------------------------------------------
@@ -113,6 +180,7 @@ assert_ExitCodeForCommand "6" "${root}/sql-runner -playbook ${root_key}/good-pos
 assert_ExitCodeForCommand "0" "${root}/sql-runner -checkLock ${root}/dist/integration-lock"
 assert_ExitCodeForCommand "1" "${root}/sql-runner -deleteLock ${root}/dist/integration-lock"
 
+# Assertion 25
 # Test: Valid playbook which creates a hard/soft-lock and then succeeds SHOULD NOT leave the lock around afterwards
 assert_ExitCodeForCommand "0" "${root}/sql-runner -playbook ${root_key}/good-postgres.yml -var test_date=`date "+%Y_%m_%d"` -fromStep \"Create schema and table\" -lock locks/integration/1 -consul ${consul_server_uri}"
 assert_ExitCodeForCommand "0" "${root}/sql-runner -checkLock locks/integration/1 -consul ${consul_server_uri}"
@@ -126,6 +194,10 @@ assert_ExitCodeForCommand "0" "${root}/sql-runner -checkLock ${root}/dist/integr
 # Test: Invalid playbook which creates a hard/soft-lock but is run using -dryRun should return exit code 0
 assert_ExitCodeForCommand "5" "${root}/sql-runner -playbook ${root_key}/bad-mixed.yml -lock ${root}/dist/integration-lock -dryRun"
 assert_ExitCodeForCommand "0" "${root}/sql-runner -playbook ${root_key}/good-postgres.yml -var test_date=`date "+%Y_%m_%d"` -lock ${root}/dist/integration-lock -dryRun"
+
+# Test: Valid playbook outputs proper results from playbooks using -dropOutput
+assert_ExitCodeForCommand "6" "${root}/sql-runner -dropOutput -playbook ${root_key}/good-postgres.yml"
+assert_OutputForCommand "25 32 18" "${root}/sql-runner -dropOutput -playbook ${root_key}/good-postgres.yml -var test_date=`date "+%Y_%m_%d"` -fromStep \"Create schema and table\""
 
 printf "==========================================================\n"
 printf " INTEGRATION TESTS SUCCESSFUL\n"
