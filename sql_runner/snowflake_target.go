@@ -6,6 +6,10 @@ import (
 	"time"
 	sf "github.com/snowflakedb/gosnowflake"
 	"strings"
+	"text/tabwriter"
+	"os"
+	"fmt"
+	"bytes"
 )
 
 // Specific for Snowflake db
@@ -49,7 +53,7 @@ func (sft SnowFlakeTarget) GetTarget() Target {
 
 // Run a query against the target
 // One statement per API call
-func (sft SnowFlakeTarget) RunQuery(query ReadyQuery, dryRun bool) QueryStatus {
+func (sft SnowFlakeTarget) RunQuery(query ReadyQuery, dryRun bool, dropOutput bool) QueryStatus {
 	var affected int64 = 0
 	var err error
 
@@ -60,20 +64,64 @@ func (sft SnowFlakeTarget) RunQuery(query ReadyQuery, dryRun bool) QueryStatus {
 	scripts := strings.Split(query.Script, ";")
 
 	for _, script := range scripts {
-		var res sql.Result
-
 		if len(strings.TrimSpace(script)) > 0 {
+			if dropOutput {
+				const padding = 3
+				w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '-', tabwriter.AlignRight|tabwriter.Debug)
+				rows, err := sft.Client.Query(script)
 
-			res, err = sft.Client.Exec(script)
+				cols, err := rows.Columns() // Remember to check err afterwards
+				if err != nil {
+					log.Println("ERROR: Unable to read columns")
+					return QueryStatus{query, query.Path, int(affected), err}
+				}
 
-			if err != nil {
-				return QueryStatus{query, query.Path, int(affected), err}
+				tabbedColumns := concatenate(cols)
+				fmt.Fprintln(w, tabbedColumns)
+
+				vals := make([]interface{}, len(cols))
+				for i, _ := range cols {
+					vals[i] = new(sql.RawBytes)
+				}
+
+				for rows.Next() {
+					err = rows.Scan(vals...)
+					if err != nil {
+						return QueryStatus{query, query.Path, int(affected), err}
+					}
+
+					tabbedRow := concatenate(stringify(vals))
+					fmt.Fprintln(w, tabbedRow)
+				}
 			} else {
-				aff, _ := res.RowsAffected()
-				affected += aff
+				res, err := sft.Client.Exec(script)
+
+				if err != nil {
+					return QueryStatus{query, query.Path, int(affected), err}
+				} else {
+					aff, _ := res.RowsAffected()
+					affected += aff
+				}
 			}
 		}
 	}
 
 	return QueryStatus{query, query.Path, int(affected), err}
+}
+
+func concatenate(row []string) string {
+	var line bytes.Buffer
+	for _, element := range row {
+		line.WriteString(fmt.Sprint(element))
+		line.WriteString("\t")
+	}
+	return line.String()
+}
+
+func stringify(row []interface{}) []string {
+	var line []string
+	for _, element := range row {
+		line = append(line, fmt.Sprint(element))
+	}
+	return line
 }
