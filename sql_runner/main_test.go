@@ -107,4 +107,9 @@ func TestResolveSqlRoot(t *testing.T) {
 	assert.NotNil(str)
 	assert.Nil(err)
 	assert.Equal("random", str)
+
+	str, err = resolveSqlRoot(SQLROOT_PLAYBOOK+"/../sql/", "../integration/resources/good-postgres.yml", "", true)
+	assert.NotNil(str)
+	assert.Nil(err)
+	assert.True(strings.HasSuffix(str, "/integration/resources/../sql/"))
 }
