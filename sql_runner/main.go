@@ -231,6 +231,15 @@ func resolveSqlRoot(sqlroot string, playbookPath string, consulAddress string, c
 		case SQLROOT_PLAYBOOK_CHILD:
 			return "", consulErr3
 		default:
+			// For allowing relative paths from the playbook
+			if strings.HasPrefix(sqlroot, SQLROOT_PLAYBOOK) {
+				absPlaybookPath, err := filepath.Abs(filepath.Dir(playbookPath))
+				if err != nil {
+					return "", nil
+				}
+				return strings.Replace(sqlroot, SQLROOT_PLAYBOOK, absPlaybookPath, 1), nil
+			}
+
 			return sqlroot, nil
 		}
 	}
