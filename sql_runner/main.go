@@ -237,7 +237,7 @@ func resolveSqlRoot(sqlroot string, playbookPath string, consulAddress string, c
 				if err != nil {
 					return "", nil
 				}
-				return strings.ReplaceAll(sqlroot, "PLAYBOOK", absPlaybookPath), nil
+				return strings.ReplaceAll(sqlroot, SQLROOT_PLAYBOOK, absPlaybookPath), nil
 			}
 
 			return sqlroot, nil
@@ -267,7 +267,7 @@ func resolveSqlRoot(sqlroot string, playbookPath string, consulAddress string, c
 			if err != nil {
 				return "", nil
 			}
-			return strings.ReplaceAll(sqlroot, "PLAYBOOK", absPlaybookPath), nil
+			return strings.ReplaceAll(sqlroot, SQLROOT_PLAYBOOK, absPlaybookPath), nil
 		}
 
 		return sqlroot, nil
