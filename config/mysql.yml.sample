@@ -4,7 +4,7 @@ targets:
     host: ADD HERE
     database: ADD HERE # Name of database
     port: 3306 # Default Postgres port
-    user: ADD HERE
+    username: ADD HERE
     password: ADD HERE
     ssl: false # SSL disabled by default
 variables:
