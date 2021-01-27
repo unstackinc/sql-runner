@@ -25,9 +25,10 @@ import (
 )
 
 // For Redshift queries
+// Currently exportable with the intent to be used among all SQL targets
 const (
-	dialTimeout = 10 * time.Second
-	readTimeout = 8 * time.Hour // TODO: make this user configurable
+	SQL_dialTimeout = 10 * time.Second
+	SQL_readTimeout = 8 * time.Hour // TODO: make this user configurable
 )
 
 type PostgresTarget struct {
@@ -56,10 +57,10 @@ func NewPostgresTarget(target Target) *PostgresTarget {
 		Password:    target.Password,
 		Database:    target.Database,
 		TLSConfig:   tlsConfig,
-		DialTimeout: dialTimeout,
-		ReadTimeout: readTimeout,
+		DialTimeout: SQL_dialTimeout,
+		ReadTimeout: SQL_readTimeout,
 		Dialer: func(network, addr string) (net.Conn, error) {
-			cn, err := net.DialTimeout(network, addr, dialTimeout)
+			cn, err := net.DialTimeout(network, addr, SQL_dialTimeout)
 			if err != nil {
 				return nil, err
 			}
@@ -82,8 +83,10 @@ func (pt PostgresTarget) RunQuery(query ReadyQuery, dryRun bool, showQueryOutput
 		options := pt.Client.Options()
 		address := options.Addr
 		if pt.IsConnectable() {
-			log.Printf("SUCCESS: Able to connect to target database, %s\n.", address)
-		} else {
+			if VerbosityOption == MAX_VERBOSITY {
+				log.Printf("SUCCESS: Able to connect to target database, %s\n.", address)
+			}
+		} else if VerbosityOption > 0 {
 			log.Printf("ERROR: Cannot connect to target database, %s\n.", address)
 		}
 		return QueryStatus{query, query.Path, 0, nil}
@@ -96,13 +99,17 @@ func (pt PostgresTarget) RunQuery(query ReadyQuery, dryRun bool, showQueryOutput
 		if err == nil {
 			affected = res.RowsAffected()
 		} else {
-			log.Printf("ERROR: %s.", err)
+			if VerbosityOption > 0 {
+				log.Printf("ERROR: %s.", err)
+			}
 			return QueryStatus{query, query.Path, int(affected), err}
 		}
 
 		err = printTable(&results)
 		if err != nil {
-			log.Printf("ERROR: %s.", err)
+			if VerbosityOption > 0 {
+				log.Printf("ERROR: %s.", err)
+			}
 			return QueryStatus{query, query.Path, int(affected), err}
 		}
 	} else {

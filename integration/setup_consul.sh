@@ -27,6 +27,7 @@ ROOT_KEY=${DIR}/resources
 
 declare -a consul_keys=(
   "${ROOT_KEY}/good-postgres.yml"
+  "${ROOT_KEY}/good-mysql.yml"
   "${ROOT_KEY}/postgres-sql/bad/1.sql"
   "${ROOT_KEY}/postgres-sql/good/1.sql"
   "${ROOT_KEY}/postgres-sql/good/2a.sql"
@@ -34,6 +35,10 @@ declare -a consul_keys=(
   "${ROOT_KEY}/postgres-sql/good/3.sql"
   "${ROOT_KEY}/postgres-sql/good/assert.sql"
   "${ROOT_KEY}/postgres-sql/good/output.sql"
+  "${ROOT_KEY}/mysql-sql-good/1.sql"
+  "${ROOT_KEY}/mysql-sql-good/2b.sql"
+  "${ROOT_KEY}/mysql-sql-good/3.sql"
+  "${ROOT_KEY}/mysql-sql-good/assert.sql"
 )
 
 echo " --- Stubbing Consul key values for integration tests --- "

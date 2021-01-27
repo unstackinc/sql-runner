@@ -15,6 +15,13 @@ targets:
     username: hana
     password:
     ssl: false # SSL disabled by default
+  - name: "My MySQL database 1"
+    type: mysql
+    host: 0.0.0.0
+    database: sql_runner_tests_1
+    port: 3307
+    user: snowplow
+    password:
 variables:
 steps:
   - name: Failing

@@ -21,6 +21,7 @@ import (
 
 const (
 	REDSHIFT_TYPE   = "redshift"
+	MYSQL_TYPE      = "mysql"
 	POSTGRES_TYPE   = "postgres"
 	POSTGRESQL_TYPE = "postgresql"
 	SNOWFLAKE_TYPE  = "snowflake"
@@ -249,8 +250,14 @@ func loadQueryFailed(targetName string, queryPath string, err error) TargetStatu
 // --- Running
 
 // Route to correct database client and run
+// See https://www.golang-book.com/books/intro/10#section2 on Go channels
 func routeAndRun(target Target, readySteps []ReadyStep, targetChan chan TargetStatus, dryRun bool, showQueryOutput bool) {
 	switch strings.ToLower(target.Type) {
+	case MYSQL_TYPE:
+		go func(tgt Target) {
+			mys := NewMySQLTarget(tgt)
+			targetChan <- runSteps(mys, readySteps, dryRun, showQueryOutput)
+		}(target)
 	case REDSHIFT_TYPE, POSTGRES_TYPE, POSTGRESQL_TYPE:
 		go func(tgt Target) {
 			pg := NewPostgresTarget(tgt)
@@ -322,7 +329,9 @@ func runQueries(database Db, stepIndex int, stepName string, queries []ReadyQuer
 	// Route each target to the right db client and run
 	for _, query := range queries {
 		go func(qry ReadyQuery) {
-			log.Printf("EXECUTING %s (in step %s @ %s): %s", qry.Name, stepName, dbName, qry.Path)
+			if VerbosityOption == MAX_VERBOSITY {
+				log.Printf("EXECUTING %s (in step %s @ %s): %s", qry.Name, stepName, dbName, qry.Path)
+			}
 			queryChan <- database.RunQuery(qry, dryRun, showQueryOutput)
 		}(query)
 	}
@@ -333,8 +342,10 @@ func runQueries(database Db, stepIndex int, stepName string, queries []ReadyQuer
 		select {
 		case status := <-queryChan:
 			if status.Error != nil {
-				log.Printf("FAILURE: %s (step %s @ target %s), ERROR: %s\n", status.Query.Name, stepName, dbName, status.Error.Error())
-			} else {
+				if VerbosityOption > 0 {
+					log.Printf("FAILURE: %s (step %s @ target %s), ERROR: %s\n", status.Query.Name, stepName, dbName, status.Error.Error())
+				}
+			} else if VerbosityOption == MAX_VERBOSITY {
 				log.Printf("SUCCESS: %s (step %s @ target %s), ROWS AFFECTED: %d\n", status.Query.Name, stepName, dbName, status.Affected)
 			}
 			allStatuses = append(allStatuses, status)
